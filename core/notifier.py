@@ -10,6 +10,36 @@ from agents.base_agent import Signal
 logger = logging.getLogger(__name__)
 
 
+def send_halt_notification(source: str, reason: str, halt_until: datetime) -> None:
+    """Send an urgent notification when trading is halted by the event guard."""
+    msg = (
+        f"\n🚨 TRADING HALTED — {source}\n"
+        f"   {reason}\n"
+        f"   Resumes: {halt_until.strftime('%H:%M:%S')}"
+    )
+    print(msg)
+    if config.NOTIFY_EMAIL and config.SMTP_USER and config.SMTP_PASS:
+        try:
+            email_msg = MIMEMultipart("alternative")
+            email_msg["Subject"] = f"[TradingBot] HALT — {source}"
+            email_msg["From"] = config.SMTP_USER
+            email_msg["To"] = config.NOTIFY_EMAIL
+            email_msg.attach(MIMEText(
+                f"Trading Halt Alert\n\n"
+                f"Source:  {source}\n"
+                f"Reason:  {reason}\n"
+                f"Resumes: {halt_until.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                "This is an automated alert from your trading bot.",
+                "plain",
+            ))
+            with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT) as server:
+                server.starttls()
+                server.login(config.SMTP_USER, config.SMTP_PASS)
+                server.sendmail(config.SMTP_USER, config.NOTIFY_EMAIL, email_msg.as_string())
+        except Exception as e:
+            logger.error(f"Failed to send halt email: {e}")
+
+
 def send_notification(result: ConfluenceResult) -> None:
     """Route notification to all configured channels."""
     _log_to_console(result)

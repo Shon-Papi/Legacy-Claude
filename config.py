@@ -51,5 +51,14 @@ class Config:
     PAPER_STARTING_CAPITAL: float = 100_000.0
     PAPER_POSITION_SIZE: float = 0.05  # 5% of portfolio per trade
 
+    # News / event guard
+    # How often (seconds) to run EventGuardAgent between main scan cycles
+    EVENT_GUARD_INTERVAL: int = int(os.getenv("EVENT_GUARD_INTERVAL", "60"))
+    # How often (minutes) to refresh the NewsBiasAgent directional bias
+    NEWS_BIAS_INTERVAL: int = int(os.getenv("NEWS_BIAS_INTERVAL", "30"))
+    # Minimum bias confidence to apply directional filtering on signals
+    # Below this threshold, NEUTRAL treatment is used regardless of stated bias
+    BIAS_FILTER_THRESHOLD: float = float(os.getenv("BIAS_FILTER_THRESHOLD", "0.65"))
+
 
 config = Config()
