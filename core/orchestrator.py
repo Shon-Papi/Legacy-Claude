@@ -66,8 +66,7 @@ class TradingOrchestrator:
         # Track portfolio peak for drawdown calculations
         self._peak_value: float = config.PAPER_STARTING_CAPITAL
 
-        # Lazy-import live broker only when needed
-        self._broker = None
+        self._live_broker_ready: bool = False
         if config.TRADING_MODE == "live":
             self._init_live_broker()
 
@@ -96,10 +95,10 @@ class TradingOrchestrator:
                 f"\n[Alpaca LIVE] Account: {status} | "
                 f"Equity: ${equity:,.2f} | Cash: ${cash:,.2f}"
             )
-            self._broker = True  # sentinel — actual calls go through live_trading.broker
+            self._live_broker_ready = True
         except Exception as e:
             logger.error(f"Alpaca init failed: {e}. Continuing in paper mode.")
-            self._broker = None
+            self._live_broker_ready = False
 
     # ------------------------------------------------------------------
     # Market-hours gate
@@ -190,7 +189,7 @@ class TradingOrchestrator:
 
     def _portfolio_value(self) -> float:
         """Portfolio value — uses paper portfolio or Alpaca equity."""
-        if config.TRADING_MODE == "live" and self._broker:
+        if config.TRADING_MODE == "live" and self._live_broker_ready:
             try:
                 from live_trading.broker import get_equity
                 return get_equity()
@@ -202,7 +201,9 @@ class TradingOrchestrator:
     # Symbol scan
     # ------------------------------------------------------------------
 
-    def scan_symbol(self, symbol: str) -> ConfluenceResult | None:
+    def scan_symbol(
+        self, symbol: str, portfolio_value: float | None = None
+    ) -> ConfluenceResult | None:
         """Run a full analysis cycle for one symbol."""
         if trading_state.is_halted:
             print(f"  ⏸️  {symbol} skipped — {trading_state.halt_status_line}")
@@ -230,14 +231,12 @@ class TradingOrchestrator:
                 f"Threshold:{'✓' if result.threshold_met else '✗'}"
             )
 
-            # Determine whether a trade will be taken
+            pv = portfolio_value if portfolio_value is not None else self._portfolio_value()
             will_trade = (
                 result.threshold_met
                 and result.final_signal != Signal.HOLD
                 and self._signal_passes_bias_filter(result.final_signal)
-                and risk_manager.is_trade_allowed(
-                    self._portfolio_value(), self._peak_value
-                )
+                and risk_manager.is_trade_allowed(pv, self._peak_value)
             )
 
             # Always journal the signal
@@ -318,7 +317,7 @@ class TradingOrchestrator:
                 )
                 self._update_peak()
 
-        elif config.TRADING_MODE == "live" and self._broker:
+        elif config.TRADING_MODE == "live" and self._live_broker_ready:
             self._execute_live_order(result, snapshot, stop_loss, take_profit, strategy)
 
     def _execute_live_order(
@@ -423,10 +422,11 @@ class TradingOrchestrator:
             print("⏸️  All symbol scans skipped — trading is halted.")
             return []
 
-        # Step 4: Scan each symbol
+        # Step 4: Scan each symbol (compute portfolio value once for the whole cycle)
+        pv = self._portfolio_value()
         results = []
         for symbol in config.WATCH_SYMBOLS:
-            result = self.scan_symbol(symbol)
+            result = self.scan_symbol(symbol, portfolio_value=pv)
             if result:
                 results.append(result)
                 if config.TRADING_MODE == "paper" and symbol in self.portfolio.positions:
@@ -482,6 +482,7 @@ class TradingOrchestrator:
                         f"  ⏸️  Trading halted mid-sleep: "
                         f"{trading_state.halt_status_line}"
                     )
+                    break
 
     # ------------------------------------------------------------------
     # Main loop

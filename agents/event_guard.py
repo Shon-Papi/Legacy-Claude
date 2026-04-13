@@ -37,19 +37,14 @@ HALT DURATIONS (configurable via EVENT_HALT_DURATIONS in config):
   Fed speech         → 10 minutes
   Geopolitical       → 20 minutes
 """
-import json
 import logging
-import re
 from datetime import datetime
 
-import anthropic
-
-from config import config
+from agents._websearch import call_with_websearch
+from agents.base_agent import extract_json_block
 from core.trading_state import trading_state
 
 logger = logging.getLogger(__name__)
-
-_WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search"}
 
 _SYSTEM = """You are a real-time market risk monitor for a day-trading system.
 
@@ -109,51 +104,11 @@ After checking, respond ONLY with this JSON block:
 If nothing halt-worthy has happened in the last 30 minutes, set should_halt=false."""
 
 
-def _call_with_websearch(user_message: str) -> str:
-    """Call Claude with web_search tool, handling pause_turn continuations."""
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    messages = [{"role": "user", "content": user_message}]
-
-    for _ in range(6):
-        response = client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=1024,
-            thinking={"type": "adaptive"},
-            system=_SYSTEM,
-            tools=[_WEB_SEARCH_TOOL],
-            messages=messages,
-        )
-
-        text = "".join(b.text for b in response.content if b.type == "text")
-
-        if response.stop_reason == "end_turn":
-            return text
-
-        if response.stop_reason == "pause_turn":
-            messages.append({"role": "assistant", "content": response.content})
-            continue
-
-        messages.append({"role": "assistant", "content": response.content})
-
-    return text
-
 
 def _parse_guard_response(text: str) -> dict:
-    """Extract the JSON block from the guard response."""
-    match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(1))
-        except json.JSONDecodeError:
-            pass
-
-    match = re.search(r'\{[^{}]*"should_halt"[^{}]*\}', text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError:
-            pass
-
+    data = extract_json_block(text, fallback_key="should_halt")
+    if data:
+        return data
     logger.warning("Could not parse guard JSON; assuming safe to trade")
     return {
         "should_halt": False,
@@ -192,7 +147,7 @@ def run_event_guard_check() -> bool:
     )
 
     try:
-        raw = _call_with_websearch(user_message)
+        raw = call_with_websearch(user_message, _SYSTEM)
         data = _parse_guard_response(raw)
 
         # Log any events found, regardless of halt decision

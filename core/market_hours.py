@@ -56,7 +56,7 @@ def _is_trading_day(d: date) -> bool:
 
 
 def is_market_open(now: datetime | None = None) -> bool:
-    """Return True if NYSE/NASDAQ is in regular session right now."""
+    """Return True if NYSE/NASDAQ regular session is active."""
     now = now or _now_et()
     if not _is_trading_day(now.date()):
         return False
@@ -67,7 +67,6 @@ def is_market_open(now: datetime | None = None) -> bool:
 
 
 def is_premarket(now: datetime | None = None) -> bool:
-    """Return True if we are in the pre-market window (4:00–9:30 AM ET)."""
     now = now or _now_et()
     if not _is_trading_day(now.date()):
         return False
@@ -76,7 +75,6 @@ def is_premarket(now: datetime | None = None) -> bool:
 
 
 def is_after_hours(now: datetime | None = None) -> bool:
-    """Return True if we are in after-hours (4:00–8:00 PM ET)."""
     now = now or _now_et()
     if not _is_trading_day(now.date()):
         return False
@@ -85,7 +83,7 @@ def is_after_hours(now: datetime | None = None) -> bool:
 
 
 def session_status(now: datetime | None = None) -> str:
-    """Return human-readable session status string."""
+    """Return OPEN | PRE-MARKET | AFTER-HOURS | CLOSED."""
     now = now or _now_et()
     if is_market_open(now):
         return "OPEN"

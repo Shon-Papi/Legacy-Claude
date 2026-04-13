@@ -32,6 +32,8 @@ class TradeJournal:
 
     def __init__(self, path: Path = _DEFAULT_PATH) -> None:
         self._path = path
+        self._cache: list[dict] | None = None
+        self._cache_date: str = ""
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -41,14 +43,17 @@ class TradeJournal:
         try:
             with open(self._path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry) + "\n")
+            self._cache = None  # invalidate so next read picks up the new entry
         except Exception as e:
             logger.error(f"Journal write error: {e}")
 
     def _read_today(self) -> list[dict]:
-        """Load all entries whose timestamp starts with today's ISO date."""
-        today_prefix = datetime.now().date().isoformat()  # e.g. "2026-04-13"
+        today = datetime.now().date().isoformat()
+        if self._cache is not None and self._cache_date == today:
+            return self._cache
         entries: list[dict] = []
         if not self._path.exists():
+            self._cache, self._cache_date = entries, today
             return entries
         try:
             with open(self._path, encoding="utf-8") as f:
@@ -58,12 +63,13 @@ class TradeJournal:
                         continue
                     try:
                         entry = json.loads(line)
-                        if entry.get("ts", "").startswith(today_prefix):
+                        if entry.get("ts", "").startswith(today):
                             entries.append(entry)
                     except json.JSONDecodeError:
                         pass
         except Exception as e:
             logger.error(f"Journal read error: {e}")
+        self._cache, self._cache_date = entries, today
         return entries
 
     # ------------------------------------------------------------------

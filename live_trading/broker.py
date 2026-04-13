@@ -31,12 +31,14 @@ from config import config
 logger = logging.getLogger(__name__)
 
 _BASE    = config.ALPACA_BASE_URL.rstrip("/")
-_HEADERS = {
+_TIMEOUT = 10
+
+_session = requests.Session()
+_session.headers.update({
     "APCA-API-KEY-ID":     config.ALPACA_API_KEY,
     "APCA-API-SECRET-KEY": config.ALPACA_SECRET_KEY,
     "Content-Type":        "application/json",
-}
-_TIMEOUT = 10  # seconds
+})
 
 
 # ------------------------------------------------------------------
@@ -44,22 +46,19 @@ _TIMEOUT = 10  # seconds
 # ------------------------------------------------------------------
 
 def _get(path: str) -> dict | list:
-    url = f"{_BASE}{path}"
-    resp = requests.get(url, headers=_HEADERS, timeout=_TIMEOUT)
+    resp = _session.get(f"{_BASE}{path}", timeout=_TIMEOUT)
     resp.raise_for_status()
     return resp.json()
 
 
 def _post(path: str, body: dict) -> dict:
-    url = f"{_BASE}{path}"
-    resp = requests.post(url, headers=_HEADERS, json=body, timeout=_TIMEOUT)
+    resp = _session.post(f"{_BASE}{path}", json=body, timeout=_TIMEOUT)
     resp.raise_for_status()
     return resp.json()
 
 
 def _delete(path: str) -> dict | list:
-    url = f"{_BASE}{path}"
-    resp = requests.delete(url, headers=_HEADERS, timeout=_TIMEOUT)
+    resp = _session.delete(f"{_BASE}{path}", timeout=_TIMEOUT)
     resp.raise_for_status()
     try:
         return resp.json()

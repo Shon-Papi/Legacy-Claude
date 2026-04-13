@@ -11,19 +11,14 @@ server-side web_search tool to scan:
 Returns BULLISH / BEARISH / NEUTRAL with a confidence score that the
 orchestrator uses to filter which confluence signals it acts on.
 """
-import json
 import logging
-import re
 from datetime import datetime
 
-import anthropic
-
-from config import config
+from agents._websearch import call_with_websearch
+from agents.base_agent import extract_json_block
 from core.trading_state import trading_state
 
 logger = logging.getLogger(__name__)
-
-_WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search"}
 
 _SYSTEM = """You are a senior macro analyst and market strategist responsible for setting
 the directional bias that governs a day-trading system.
@@ -61,54 +56,11 @@ After gathering information, respond ONLY with this JSON block:
 Be decisive. Confidence < 0.5 should default to NEUTRAL."""
 
 
-def _call_with_websearch(user_message: str) -> str:
-    """Call Claude with web_search tool, handling pause_turn continuations."""
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    messages = [{"role": "user", "content": user_message}]
-
-    for _ in range(6):  # max continuations for server-side tool loops
-        response = client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=2048,
-            thinking={"type": "adaptive"},
-            system=_SYSTEM,
-            tools=[_WEB_SEARCH_TOOL],
-            messages=messages,
-        )
-
-        text = "".join(b.text for b in response.content if b.type == "text")
-
-        if response.stop_reason == "end_turn":
-            return text
-
-        if response.stop_reason == "pause_turn":
-            # Server-side tool loop hit iteration limit — re-send to continue
-            messages.append({"role": "assistant", "content": response.content})
-            continue
-
-        # tool_use or anything else — keep going
-        messages.append({"role": "assistant", "content": response.content})
-
-    return text
-
 
 def _parse_bias_response(text: str) -> dict:
-    """Extract the JSON block from the LLM response."""
-    match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(1))
-        except json.JSONDecodeError:
-            pass
-
-    # Fallback: scan for bare JSON object
-    match = re.search(r'\{[^{}]*"bias"[^{}]*\}', text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError:
-            pass
-
+    data = extract_json_block(text, fallback_key="bias")
+    if data:
+        return data
     logger.warning("Could not parse bias JSON; defaulting to NEUTRAL")
     return {
         "bias": "NEUTRAL",
@@ -142,7 +94,7 @@ def run_news_bias_check() -> None:
     )
 
     try:
-        raw = _call_with_websearch(user_message)
+        raw = call_with_websearch(user_message, _SYSTEM, max_tokens=2048)
         data = _parse_bias_response(raw)
 
         bias = data.get("bias", "NEUTRAL")

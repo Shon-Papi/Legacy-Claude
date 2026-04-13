@@ -1,8 +1,33 @@
+import json
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 import anthropic
 from config import config
+
+
+def extract_json_block(text: str, fallback_key: str = "") -> dict:
+    """
+    Extract the first JSON code block from an LLM response.
+    Falls back to scanning for a bare JSON object containing *fallback_key*.
+    Returns an empty dict if nothing parseable is found.
+    """
+    match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except json.JSONDecodeError:
+            pass
+    if fallback_key:
+        pattern = rf'\{{[^{{}}]*"{re.escape(fallback_key)}"[^{{}}]*\}}'
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except json.JSONDecodeError:
+                pass
+    return {}
 
 
 class Signal(str, Enum):
@@ -64,14 +89,9 @@ class BaseAgent:
 
     def _parse_response(self, text: str, symbol: str, snapshot: dict) -> AgentSignal:
         """Parse the LLM response into a structured AgentSignal."""
-        import re
-        import json
-
-        # Try to extract JSON block from response
-        json_match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
-        if json_match:
+        data = extract_json_block(text, fallback_key="signal")
+        if data:
             try:
-                data = json.loads(json_match.group(1))
                 return AgentSignal(
                     agent_name=self.__class__.__name__,
                     strategy_name=self.strategy_name,
@@ -82,10 +102,10 @@ class BaseAgent:
                     stop_loss=data.get("stop_loss"),
                     take_profit=data.get("take_profit"),
                 )
-            except (json.JSONDecodeError, KeyError, ValueError):
+            except (KeyError, ValueError):
                 pass
 
-        # Fallback: parse signal from text
+        # Fallback: parse signal keyword from raw text
         text_upper = text.upper()
         if "BUY" in text_upper and "SELL" not in text_upper:
             signal = Signal.BUY
@@ -94,7 +114,6 @@ class BaseAgent:
         else:
             signal = Signal.HOLD
 
-        # Extract confidence if mentioned
         conf_match = re.search(r"confidence[:\s]+([0-9.]+)", text, re.IGNORECASE)
         confidence = float(conf_match.group(1)) if conf_match else 0.5
         if confidence > 1.0:
