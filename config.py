@@ -51,6 +51,18 @@ class Config:
     PAPER_STARTING_CAPITAL: float = 100_000.0
     PAPER_POSITION_SIZE: float = 0.05  # 5% of portfolio per trade
 
+    # Risk management
+    # Stop trading for the day if realized P&L falls below this % of starting capital
+    MAX_DAILY_LOSS_PCT: float = float(os.getenv("MAX_DAILY_LOSS_PCT", "0.02"))   # 2%
+    # Stop trading if portfolio draws down this % from its peak value
+    MAX_DRAWDOWN_PCT: float = float(os.getenv("MAX_DRAWDOWN_PCT", "0.05"))       # 5%
+    # Maximum number of round-trip trades per calendar day (prevents overtrading)
+    DAILY_TRADE_LIMIT: int = int(os.getenv("DAILY_TRADE_LIMIT", "10"))
+    # When True, the bot refuses to place orders outside regular NYSE/NASDAQ hours
+    ONLY_TRADE_MARKET_HOURS: bool = (
+        os.getenv("ONLY_TRADE_MARKET_HOURS", "true").lower() == "true"
+    )
+
     # News / event guard
     # How often (seconds) to run EventGuardAgent between main scan cycles
     EVENT_GUARD_INTERVAL: int = int(os.getenv("EVENT_GUARD_INTERVAL", "60"))
