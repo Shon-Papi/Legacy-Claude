@@ -2,250 +2,174 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#0c0d12" />
-  <title>Rowan's Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0b0c11" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="LifeOS" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <title>LifeOS — Daily Score</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,opsz@0,6..72;1,6..72&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="app" class="app">
-    <!-- ============ MAIN TAB ============ -->
-    <section class="page" data-page="main">
+
+    <!-- ============ TODAY ============ -->
+    <section class="page" data-page="today">
       <header class="topbar">
         <div class="topbar-row">
-          <h1 class="brand">Rowan's Dashboard</h1>
+          <div>
+            <h1 class="brand" id="greeting">Today</h1>
+            <div class="subdate" id="todayDate">—</div>
+          </div>
           <div class="topbar-actions">
             <button class="icon-btn" id="searchBtn" title="Search">⌕</button>
-            <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+            <button class="icon-btn" id="endDayBtn" title="End day">🌙</button>
           </div>
-        </div>
-        <div class="day-pill-row">
-          <button class="day-pill" id="dayPill"><span id="dayPillText">FRI, MAY 1 · PULL DAY</span></button>
-        </div>
-        <div class="quick-row">
-          <button class="chip chip-water" id="waterChip">💧 <span id="waterCount">2</span></button>
-          <button class="chip" id="moodChip">☾ <span id="moodCount">2</span></button>
-          <button class="chip chip-end" id="endDayBtn">🌙 End day</button>
-          <button class="chip chip-schedule" id="scheduleBtn">🗓 Schedule</button>
-        </div>
-        <div class="search-wrap">
-          <span class="search-ic">⌕</span>
-          <input id="globalSearch" class="search-input" placeholder="Search anything… velo, calories, brand…" />
         </div>
       </header>
 
-      <main class="scroll" id="mainScroll">
-        <!-- Time of day -->
-        <div class="tod-card" id="todCard">
-          <div class="tod-head">
-            <span class="tod-label" id="todLabel">⚡ Midday — keep moving</span>
-            <span class="tod-time" id="todTime">12:43 PM</span>
-            <span class="tod-pct" id="todPct">33%</span>
+      <main class="scroll" id="todayScroll">
+        <!-- Life score ring -->
+        <div class="score-hero">
+          <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+            <circle class="ring-bg" cx="100" cy="100" r="86" />
+            <circle class="ring-fg" id="ringFg" cx="100" cy="100" r="86" transform="rotate(-90 100 100)" />
+          </svg>
+          <div class="score-center">
+            <div class="score-num" id="lifeScore">0</div>
+            <div class="score-cap">LIFE SCORE</div>
+            <div class="score-grade" id="scoreGrade">—</div>
           </div>
-          <div class="tod-bar"><div class="tod-fill" id="todFill"></div></div>
-          <div class="tod-sub" id="todSub">11h 17m of awake time left</div>
+        </div>
+        <div class="score-meta">
+          <div class="meta-pill">🔥 <b id="streakNum">0</b> day streak</div>
+          <div class="meta-pill">📊 7d avg <b id="avg7">—</b></div>
+          <div class="meta-pill" id="todProgressPill">☀️ <b id="awakePct">—</b> of day</div>
+        </div>
+
+        <!-- Pillars -->
+        <div class="section-row">
+          <div class="section-label">Pillars</div>
+          <div class="section-hint" id="pillarHint">tap to log</div>
+        </div>
+        <div class="pillars" id="pillarGrid"></div>
+
+        <!-- Goals (drives Productivity) -->
+        <div class="section-row">
+          <div class="section-label">Goals</div>
+          <div class="section-hint"><span id="goalDone">0</span>/<span id="goalTotal">0</span> done</div>
+        </div>
+        <div class="card">
+          <ul class="goal-list" id="goalList"></ul>
+          <button class="ghost-btn" id="showMoreBtn" hidden></button>
+          <form class="add-row" id="addGoalForm">
+            <input id="addGoalInput" placeholder="Add a goal for today…" enterkeyhint="done" />
+            <button type="submit" class="add-btn" aria-label="Add">+</button>
+          </form>
         </div>
 
         <!-- Overseer -->
-        <div class="section-label">Overseer</div>
-        <div class="overseer-card">
-          <div class="overseer-head">
-            <div class="overseer-avatar">✦</div>
-            <div class="overseer-meta">
-              <div class="overseer-name">Overseer <span class="online">● online</span></div>
-              <div class="overseer-desc">Knows your dashboard. Ask anything.</div>
-            </div>
-          </div>
+        <div class="section-row">
+          <div class="section-label">Overseer</div>
+          <div class="section-hint" id="overseerMode">local</div>
+        </div>
+        <div class="card overseer">
           <div class="overseer-thread" id="overseerThread"></div>
+          <div class="overseer-quick" id="overseerQuick"></div>
           <div class="overseer-input">
-            <span class="mic">🎙</span>
-            <input id="overseerInput" placeholder="Message Overseer" />
-            <button class="send-btn" id="overseerSend">↑</button>
+            <input id="overseerInput" placeholder="Ask about your day…" enterkeyhint="send" />
+            <button class="send-btn" id="overseerSend" aria-label="Send">↑</button>
           </div>
-        </div>
-
-        <!-- Goalmaxxing -->
-        <div class="section-label">Goalmaxxing</div>
-        <div class="goal-card">
-          <div class="goal-head">
-            <div>
-              <div class="goal-today" id="goalTodayLabel">TODAY — FRI, MAY 1</div>
-              <div class="goal-count"><span id="goalDone">0</span> / <span id="goalTotal">0</span> <small>complete</small></div>
-            </div>
-            <div class="streak-badge">⚡ <span id="streakCount">0</span> day streak</div>
-          </div>
-          <div class="goal-progress"><div class="goal-progress-fill" id="goalProgressFill"></div></div>
-          <ul class="goal-list" id="goalList"></ul>
-          <button class="show-more" id="showMoreBtn" hidden>Show <span id="showMoreCount">0</span> more ▾</button>
-          <button class="push-tmrw" id="pushTomorrow">→ Push remaining to tomorrow</button>
-          <form class="add-row" id="addGoalForm">
-            <input id="addGoalInput" placeholder="Add a goal for today…" />
-            <button type="submit" class="add-btn">+</button>
-          </form>
-        </div>
-
-        <!-- Plan tomorrow -->
-        <div class="goal-card plan-card">
-          <div class="plan-head">
-            <div>
-              <div class="goal-today">PLAN TOMORROW — <span id="tmrwLabel">SAT, MAY 2</span></div>
-              <div class="plan-sub">Write tonight, locked until 6 AM.</div>
-            </div>
-            <button class="polish-btn" id="polishTmrw">✦ Polish</button>
-          </div>
-          <ul class="goal-list" id="tmrwList"></ul>
-          <div class="plan-empty" id="tmrwEmpty">Nothing planned for tomorrow yet</div>
-          <form class="add-row" id="addTmrwForm">
-            <input id="addTmrwInput" placeholder="Add a goal for tomorrow…" />
-            <button type="submit" class="add-btn">+</button>
-          </form>
-        </div>
-
-        <!-- Struggles -->
-        <div class="section-label">Current struggles</div>
-        <div class="list-card">
-          <div class="list-card-hint"><b id="struggleCount">0</b> things on your mind right now</div>
-          <ul class="tag-list" id="struggleList"></ul>
-          <form class="add-row" id="addStruggleForm">
-            <input id="addStruggleInput" placeholder="What's weighing on you?" />
-            <button type="submit" class="add-btn">+</button>
-          </form>
-        </div>
-
-        <!-- Wins -->
-        <div class="section-label">Wins &amp; positives</div>
-        <div class="list-card">
-          <div class="list-card-hint"><b id="winCount">0</b> things going right</div>
-          <ul class="tag-list win-tags" id="winList"></ul>
-          <form class="add-row" id="addWinForm">
-            <input id="addWinInput" placeholder="What's going right?" />
-            <button type="submit" class="add-btn">+</button>
-          </form>
-        </div>
-
-        <!-- Water -->
-        <div class="section-label">Water</div>
-        <div class="water-card">
-          <div class="water-top">
-            <div class="water-count"><span id="waterBig">2</span><small> / <span id="waterGoal">6</span> bottles today</small></div>
-            <div class="water-btns">
-              <button class="water-btn" id="waterMinus">−</button>
-              <button class="water-btn water-plus" id="waterPlus">+</button>
-            </div>
-          </div>
-          <div class="water-dots" id="waterDots"></div>
         </div>
 
         <div class="footer-space"></div>
       </main>
     </section>
 
-    <!-- ============ FINANCES TAB ============ -->
-    <section class="page" data-page="finances" hidden>
-      <header class="topbar"><div class="topbar-row"><h1 class="brand">Finances</h1></div></header>
+    <!-- ============ TRENDS ============ -->
+    <section class="page" data-page="trends" hidden>
+      <header class="topbar"><div class="topbar-row"><div><h1 class="brand">Trends</h1><div class="subdate">Your last 14 days</div></div></div></header>
       <main class="scroll">
-        <div class="stat-grid">
-          <div class="stat-card"><div class="stat-k">Net worth</div><div class="stat-v">$<span id="finNet">12,480</span></div><div class="stat-d up">▲ 4.2% this month</div></div>
-          <div class="stat-card"><div class="stat-k">Cash</div><div class="stat-v">$<span id="finCash">3,210</span></div><div class="stat-d">checking + savings</div></div>
+        <div class="card trend-summary">
+          <div class="ts-col"><div class="ts-k">TODAY</div><div class="ts-v" id="tsToday">0</div></div>
+          <div class="ts-col"><div class="ts-k">7-DAY AVG</div><div class="ts-v" id="ts7">—</div></div>
+          <div class="ts-col"><div class="ts-k">BEST</div><div class="ts-v" id="tsBest">—</div></div>
+          <div class="ts-col"><div class="ts-k">STREAK</div><div class="ts-v" id="tsStreak">0</div></div>
         </div>
-        <div class="section-label">This month</div>
-        <div class="list-card">
-          <div class="money-row"><span>Income</span><b class="up">+$4,800</b></div>
-          <div class="money-row"><span>Spending</span><b class="down">−$2,640</b></div>
-          <div class="money-row"><span>Saved</span><b class="up">+$2,160</b></div>
-          <div class="money-bar"><div class="money-bar-fill" style="width:55%"></div></div>
-          <div class="list-card-hint">45% of income saved this month</div>
-        </div>
-        <div class="section-label">Recent</div>
-        <div class="list-card" id="txList"></div>
+
+        <div class="section-label">Daily life score</div>
+        <div class="card"><div class="bars" id="trendBars"></div></div>
+
+        <div class="section-label">Pillar averages (7d)</div>
+        <div class="card" id="pillarAverages"></div>
+
         <div class="footer-space"></div>
       </main>
     </section>
 
-    <!-- ============ BRAND TAB ============ -->
-    <section class="page" data-page="brand" hidden>
-      <header class="topbar"><div class="topbar-row"><h1 class="brand">Brand</h1></div></header>
+    <!-- ============ SETTINGS ============ -->
+    <section class="page" data-page="settings" hidden>
+      <header class="topbar"><div class="topbar-row"><div><h1 class="brand">Settings</h1><div class="subdate">Allocate &amp; tune your scoring</div></div></div></header>
       <main class="scroll">
-        <div class="stat-grid">
-          <div class="stat-card brand-card">
-            <div class="brand-row"><span class="yt">▶ YouTube</span><span class="live">● LIVE</span></div>
-            <div class="stat-v"><span id="ytSubs">195</span></div>
-            <div class="stat-d">subscribers · <span class="up">+15 today</span></div>
-            <svg class="spark" viewBox="0 0 200 48" preserveAspectRatio="none"><polyline id="ytSpark" fill="none" stroke="#34d399" stroke-width="2" points=""/></svg>
-          </div>
-          <div class="stat-card brand-card">
-            <div class="brand-row"><span class="ig">◎ Instagram</span></div>
-            <div class="stat-v"><span id="igFollow">8.4k</span></div>
-            <div class="stat-d">followers · <span class="up">+120 wk</span></div>
-          </div>
+        <div class="section-label">Your name</div>
+        <div class="card">
+          <form class="add-row" id="nameForm">
+            <input id="nameInput" placeholder="What should Overseer call you?" />
+            <button type="submit" class="add-btn">✓</button>
+          </form>
         </div>
-        <div class="section-label">Content pipeline</div>
-        <div class="list-card" id="brandPipe"></div>
-        <div class="footer-space"></div>
-      </main>
-    </section>
 
-    <!-- ============ HEALTH TAB ============ -->
-    <section class="page" data-page="health" hidden>
-      <header class="topbar"><div class="topbar-row"><h1 class="brand">Health</h1></div></header>
-      <main class="scroll">
-        <div class="stat-grid">
-          <div class="stat-card"><div class="stat-k">Calories</div><div class="stat-v"><span id="hCals">1,420</span><small> / 2,600</small></div><div class="ring-bar"><div style="width:55%"></div></div></div>
-          <div class="stat-card"><div class="stat-k">Protein</div><div class="stat-v"><span id="hProtein">112</span><small>g / 180g</small></div><div class="ring-bar"><div style="width:62%"></div></div></div>
+        <div class="section-row">
+          <div class="section-label">Weight allocation</div>
+          <div class="section-hint" id="weightTotal">100%</div>
         </div>
-        <div class="stat-grid">
-          <div class="stat-card"><div class="stat-k">Sleep</div><div class="stat-v">7h 20m</div><div class="stat-d">last night</div></div>
-          <div class="stat-card"><div class="stat-k">Weight</div><div class="stat-v">168 <small>lb</small></div><div class="stat-d up">▼ on track</div></div>
-        </div>
-        <div class="section-label">Supplements</div>
-        <div class="list-card" id="suppList"></div>
-        <div class="footer-space"></div>
-      </main>
-    </section>
+        <div class="card" id="weightList"></div>
 
-    <!-- ============ GYM TAB ============ -->
-    <section class="page" data-page="gym" hidden>
-      <header class="topbar"><div class="topbar-row"><h1 class="brand">Gym</h1></div><div class="day-pill-row"><span class="day-pill static">TODAY · PULL DAY</span></div></header>
-      <main class="scroll">
-        <div class="stat-grid">
-          <div class="stat-card"><div class="stat-k">Streak</div><div class="stat-v"><span id="gymStreak">12</span> <small>days</small></div></div>
-          <div class="stat-card"><div class="stat-k">Volume</div><div class="stat-v">14,200 <small>lb</small></div><div class="stat-d up">▲ vs last pull</div></div>
+        <div class="section-label">Targets</div>
+        <div class="card" id="targetList"></div>
+
+        <div class="section-label">Overseer (AI)</div>
+        <div class="card">
+          <div class="setting-blurb">By default Overseer answers locally from your data. Paste an Anthropic API key to power it with Claude. Stored only in this browser.</div>
+          <form class="add-row" id="keyForm">
+            <input id="keyInput" type="password" placeholder="sk-ant-… (optional)" />
+            <button type="submit" class="add-btn">✓</button>
+          </form>
+          <button class="ghost-btn danger" id="clearKey">Remove key</button>
         </div>
-        <div class="section-label">Today's workout</div>
-        <div class="list-card" id="gymList"></div>
+
+        <div class="section-label">Data</div>
+        <div class="card">
+          <button class="ghost-btn" id="exportBtn">⬇ Export my data (JSON)</button>
+          <button class="ghost-btn" id="importBtn">⬆ Import data</button>
+          <input type="file" id="importFile" accept="application/json" hidden />
+          <button class="ghost-btn danger" id="resetBtn">↺ Reset everything</button>
+        </div>
+
+        <div class="card install-card" id="installCard" hidden>
+          <div class="setting-blurb"><b>Install as an app</b> — add to your home screen for full-screen, offline use.</div>
+          <button class="ghost-btn" id="installBtn">📲 Install LifeOS</button>
+        </div>
+        <div class="card">
+          <div class="setting-blurb" id="iosHint">On iPhone: open in Safari → Share → <b>Add to Home Screen</b> to install.</div>
+        </div>
+
         <div class="footer-space"></div>
       </main>
     </section>
 
     <!-- ============ BOTTOM NAV ============ -->
     <nav class="tabbar">
-      <button class="tab active" data-tab="main"><span class="tab-ic">🏠</span><span>Main</span></button>
-      <button class="tab" data-tab="finances"><span class="tab-ic">💰</span><span>Finances</span></button>
-      <button class="tab" data-tab="brand"><span class="tab-ic">📣</span><span>Brand</span></button>
-      <button class="tab" data-tab="health"><span class="tab-ic">💊</span><span>Health</span></button>
-      <button class="tab" data-tab="gym"><span class="tab-ic">🏋️</span><span>Gym</span></button>
+      <button class="tab active" data-tab="today"><span class="tab-ic">◎</span><span>Today</span></button>
+      <button class="tab" data-tab="trends"><span class="tab-ic">📈</span><span>Trends</span></button>
+      <button class="tab" data-tab="settings"><span class="tab-ic">⚙</span><span>Settings</span></button>
     </nav>
-  </div>
-
-  <!-- ============ SCHEDULE MODAL ============ -->
-  <div class="modal" id="scheduleModal" hidden>
-    <div class="modal-card">
-      <div class="modal-head">
-        <div>
-          <h2>Daily Schedule</h2>
-          <div class="modal-sub" id="schedDate">FRI, MAY 1</div>
-        </div>
-        <button class="icon-btn close" id="closeSchedule">✕</button>
-      </div>
-      <div class="loc-tabs">
-        <button class="loc-tab active" data-loc="lesroches">🏔 Les Roches</button>
-        <button class="loc-tab" data-loc="bern">🏠 Bern</button>
-      </div>
-      <div class="modal-scroll" id="scheduleBody"></div>
-    </div>
   </div>
 
   <!-- ============ SEARCH OVERLAY ============ -->
@@ -253,7 +177,7 @@
     <div class="search-modal-card">
       <div class="search-wrap big">
         <span class="search-ic">⌕</span>
-        <input id="searchOverlayInput" class="search-input" placeholder="Search goals, schedule, struggles…" autofocus />
+        <input id="searchInput" class="search-input" placeholder="Search goals, pillars…" />
         <button class="icon-btn close" id="closeSearch">✕</button>
       </div>
       <div class="search-results" id="searchResults"></div>
@@ -262,6 +186,7 @@
 
   <div class="toast" id="toast" hidden></div>
 
+  <script src="pillars.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

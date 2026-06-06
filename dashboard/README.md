@@ -1,61 +1,96 @@
-# Rowan's Dashboard
+# LifeOS — Daily Score
 
-A personal **life-OS dashboard** — a single screen that tracks your day, goals,
-routines, brand, health, and gym, with an AI assistant ("Overseer") that reads
-your whole dashboard and answers questions about it.
+A portable, **installable** personal dashboard that turns your day into a single
+**Life Score** (0–100). Your life is split into weighted *pillars* — Sleep,
+Nutrition, Fitness, Hydration, Productivity, Mind, Work/Brand, Finance, Learning
+— and each thing you log rolls up into one number you can grow every day.
 
-Built after [@rowanthislebrooke](https://instagram.com/rowanthislebrooke)'s reel
-showing the dashboard he made with Claude.
+Phone-first, works on web and iPhone, no build step, no account, no backend.
+Inspired by [@rowanthislebrooke](https://instagram.com/rowanthislebrooke)'s reel.
 
-![dashboard](https://img.shields.io/badge/stack-vanilla%20JS-f0a868) ![build](https://img.shields.io/badge/build-none-34d399)
-
-## Features
-
-- **Time of day** — a progress bar of your awake hours ("11h 17m of awake time left").
-- **Overseer** — an assistant that knows your live dashboard. Ask *"what's left?"*,
-  *"how's my streak?"*, *"give me a recap"*. Works fully offline; optionally
-  upgradeable to Claude (see below).
-- **Goalmaxxing** — today's checklist with add / check / delete, show-more,
-  a day-streak, and **Push remaining → tomorrow**.
-- **Plan tomorrow** — write tonight; a one-tap **Polish** cleans the list up.
-- **Current struggles** & **Wins & positives** — quick capture for what's on your mind.
-- **Water** tracker with bottle dots.
-- **Schedule** modal — Morning + Night routines, switchable between locations
-  (Les Roches / Bern), with checkable steps.
-- **Finances · Brand · Health · Gym** tabs — net worth, YouTube subs + sparkline,
-  macros, today's workout.
-- **Universal search** across goals, schedule, struggles, and wins.
-- **Day rollover** — a new day carries unfinished goals (or tomorrow's plan)
-  forward and extends the streak when you finish everything.
-- Everything persists in `localStorage`. No account, no backend.
-
-## Run it
-
-It's static — just open the file, or serve the folder:
+## Run it (localhost link you can bookmark)
 
 ```bash
 cd dashboard
-python3 -m http.server 8080
-# open http://localhost:8080
+python3 serve.py            # or: python3 serve.py 5000
 ```
 
-Best viewed in a mobile/portrait viewport (it's designed phone-first).
+It prints two links:
+
+- **This computer** — `http://localhost:8080` (bookmark on your laptop)
+- **Phone (same Wi-Fi)** — `http://<your-computer-ip>:8080` (bookmark on your phone)
+
+On iPhone, open the phone link in **Safari → Share → Add to Home Screen** to
+install it as a full-screen app. On Chrome/Edge desktop, use the **Install
+LifeOS** button in Settings. Once loaded it works **offline**.
+
+## How the scoring works
+
+| | |
+|---|---|
+| **Pillars** | Each pillar has a **weight** (how much it matters) and one or more **metrics** you log. |
+| **Metric → progress** | Every metric maps to 0–100% of its target (e.g. 4h sleep / 8h target = 50%). |
+| **Pillar score** | Average of its metrics, 0–100. |
+| **Life Score** | Weight-weighted average of all pillars. |
+
+Default allocation (editable in Settings, sums to 100%):
+
+| Pillar | Weight | Logs |
+|---|---|---|
+| 🟦 Productivity | 15 | goals completed today |
+| 😴 Sleep | 15 | hours + quality *(auto-sync later)* |
+| 🍽️ Nutrition | 14 | meals + protein *(auto-sync later)* |
+| 🏋️ Fitness | 14 | workout + active minutes |
+| 📈 Work / Brand | 13 | deep-work hours + content shipped |
+| 🧘 Mind | 10 | meditate + journal + gratitude |
+| 💧 Hydration | 7 | water bottles |
+| 📚 Learning | 7 | reading minutes |
+| 💰 Finance | 5 | on budget + saved |
+
+**Pillars marked "sync soon"** (Sleep, Nutrition) take manual inputs today but
+are structured so an external source — a sleep tracker, a meal logger — can set
+their score later without changing anything else. That's the foundation you
+asked for.
+
+## What's functional now
+
+- **Today** — big Life Score ring, tap any pillar to log it (counters, toggles,
+  sliders, numbers), goals checklist, and an **Overseer** assistant that reads
+  your live scores ("recap", "what's my weak spot?").
+- **Trends** — 14-day score chart, 7-day average, best day, streak, and per-pillar
+  7-day averages.
+- **Settings** — re-allocate weights, edit every target, set your name, connect
+  Overseer to Claude, export/import/reset your data, install the app.
+- **Day rollover** — at midnight today is snapshotted into history, unfinished
+  goals carry forward, and your streak extends when you finish above 70.
+- Everything persists in `localStorage`. Export to JSON anytime.
 
 ## Optional: power Overseer with Claude
 
-By default Overseer answers locally from your dashboard data. To have it answer
-with **Claude**, tap the ⚙ icon and paste an Anthropic API key — it's stored
-only in your browser's `localStorage` and used for direct browser calls to the
-Messages API (`claude-haiku-4-5`). Leave it blank to stay in local mode; type
-`clear` to remove the key.
-
-> Note: putting an API key in the browser exposes it to that browser. Use a
-> scoped/disposable key, or run a small proxy in production.
+Settings → paste an Anthropic API key. It's stored only in your browser and used
+for direct browser calls to the Messages API (`claude-haiku-4-5`). Leave it
+blank for local mode. *(A browser-stored key is visible to that browser — use a
+scoped/disposable key, or add a server proxy for production.)*
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `index.html` | Layout & structure |
-| `styles.css` | Dark theme (amber + blue accents) |
-| `app.js` | State, persistence, Overseer, all interactions |
+| `index.html` | Layout / structure |
+| `styles.css` | Dark theme, mobile-first |
+| `pillars.js` | **Scoring engine** — pillar/metric config + math |
+| `app.js` | State, rendering, logging, Overseer, PWA |
+| `manifest.webmanifest`, `sw.js`, `icons/` | PWA install + offline |
+| `serve.py` | Local server (computer + phone) |
+
+## Adding / changing a pillar
+
+Everything is data-driven. Edit the `PILLARS` array in `pillars.js`:
+
+```js
+{ id:'recovery', name:'Recovery', emoji:'🧊', color:'#38bdf8', weight:5,
+  metrics:[ { key:'cold', label:'Cold plunge', type:'toggle' },
+            { key:'stretch', label:'Stretch', type:'number', target:15, unit:'min' } ] }
+```
+
+Keep the weights summing to 100 (Settings shows the running total).
