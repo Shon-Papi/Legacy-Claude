@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0b0c11" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="LifeOS" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <title>LifeOS — Daily Score</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="app">
+
+    <!-- ============ TODAY ============ -->
+    <section class="page" data-page="today">
+      <header class="topbar">
+        <div class="topbar-row">
+          <div>
+            <h1 class="brand" id="greeting">Today</h1>
+            <div class="subdate" id="todayDate">—</div>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-btn" id="searchBtn" title="Search">⌕</button>
+            <button class="icon-btn" id="endDayBtn" title="End day">🌙</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="scroll" id="todayScroll">
+        <!-- Life score ring -->
+        <div class="score-hero">
+          <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+            <circle class="ring-bg" cx="100" cy="100" r="86" />
+            <circle class="ring-fg" id="ringFg" cx="100" cy="100" r="86" transform="rotate(-90 100 100)" />
+          </svg>
+          <div class="score-center">
+            <div class="score-num" id="lifeScore">0</div>
+            <div class="score-cap">LIFE SCORE</div>
+            <div class="score-grade" id="scoreGrade">—</div>
+          </div>
+        </div>
+        <div class="score-meta">
+          <div class="meta-pill">🔥 <b id="streakNum">0</b> day streak</div>
+          <div class="meta-pill">📊 7d avg <b id="avg7">—</b></div>
+          <div class="meta-pill" id="todProgressPill">☀️ <b id="awakePct">—</b> of day</div>
+        </div>
+
+        <!-- Pillars -->
+        <div class="section-row">
+          <div class="section-label">Pillars</div>
+          <div class="section-hint" id="pillarHint">tap to log</div>
+        </div>
+        <div class="pillars" id="pillarGrid"></div>
+
+        <!-- Goals (drives Productivity) -->
+        <div class="section-row">
+          <div class="section-label">Goals</div>
+          <div class="section-hint"><span id="goalDone">0</span>/<span id="goalTotal">0</span> done</div>
+        </div>
+        <div class="card">
+          <ul class="goal-list" id="goalList"></ul>
+          <button class="ghost-btn" id="showMoreBtn" hidden></button>
+          <form class="add-row" id="addGoalForm">
+            <input id="addGoalInput" placeholder="Add a goal for today…" enterkeyhint="done" />
+            <button type="submit" class="add-btn" aria-label="Add">+</button>
+          </form>
+        </div>
+
+        <!-- Overseer -->
+        <div class="section-row">
+          <div class="section-label">Overseer</div>
+          <div class="section-hint" id="overseerMode">local</div>
+        </div>
+        <div class="card overseer">
+          <div class="overseer-thread" id="overseerThread"></div>
+          <div class="overseer-quick" id="overseerQuick"></div>
+          <div class="overseer-input">
+            <input id="overseerInput" placeholder="Ask about your day…" enterkeyhint="send" />
+            <button class="send-btn" id="overseerSend" aria-label="Send">↑</button>
+          </div>
+        </div>
+
+        <div class="footer-space"></div>
+      </main>
+    </section>
+
+    <!-- ============ TRENDS ============ -->
+    <section class="page" data-page="trends" hidden>
+      <header class="topbar"><div class="topbar-row"><div><h1 class="brand">Trends</h1><div class="subdate">Your last 14 days</div></div></div></header>
+      <main class="scroll">
+        <div class="card trend-summary">
+          <div class="ts-col"><div class="ts-k">TODAY</div><div class="ts-v" id="tsToday">0</div></div>
+          <div class="ts-col"><div class="ts-k">7-DAY AVG</div><div class="ts-v" id="ts7">—</div></div>
+          <div class="ts-col"><div class="ts-k">BEST</div><div class="ts-v" id="tsBest">—</div></div>
+          <div class="ts-col"><div class="ts-k">STREAK</div><div class="ts-v" id="tsStreak">0</div></div>
+        </div>
+
+        <div class="section-label">Daily life score</div>
+        <div class="card"><div class="bars" id="trendBars"></div></div>
+
+        <div class="section-label">Pillar averages (7d)</div>
+        <div class="card" id="pillarAverages"></div>
+
+        <div class="footer-space"></div>
+      </main>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="page" data-page="settings" hidden>
+      <header class="topbar"><div class="topbar-row"><div><h1 class="brand">Settings</h1><div class="subdate">Allocate &amp; tune your scoring</div></div></div></header>
+      <main class="scroll">
+        <div class="section-label">Your name</div>
+        <div class="card">
+          <form class="add-row" id="nameForm">
+            <input id="nameInput" placeholder="What should Overseer call you?" />
+            <button type="submit" class="add-btn">✓</button>
+          </form>
+        </div>
+
+        <div class="section-row">
+          <div class="section-label">Weight allocation</div>
+          <div class="section-hint" id="weightTotal">100%</div>
+        </div>
+        <div class="card" id="weightList"></div>
+
+        <div class="section-label">Targets</div>
+        <div class="card" id="targetList"></div>
+
+        <div class="section-label">Overseer (AI)</div>
+        <div class="card">
+          <div class="setting-blurb">By default Overseer answers locally from your data. Paste an Anthropic API key to power it with Claude. Stored only in this browser.</div>
+          <form class="add-row" id="keyForm">
+            <input id="keyInput" type="password" placeholder="sk-ant-… (optional)" />
+            <button type="submit" class="add-btn">✓</button>
+          </form>
+          <button class="ghost-btn danger" id="clearKey">Remove key</button>
+        </div>
+
+        <div class="section-label">Data</div>
+        <div class="card">
+          <button class="ghost-btn" id="exportBtn">⬇ Export my data (JSON)</button>
+          <button class="ghost-btn" id="importBtn">⬆ Import data</button>
+          <input type="file" id="importFile" accept="application/json" hidden />
+          <button class="ghost-btn danger" id="resetBtn">↺ Reset everything</button>
+        </div>
+
+        <div class="card install-card" id="installCard" hidden>
+          <div class="setting-blurb"><b>Install as an app</b> — add to your home screen for full-screen, offline use.</div>
+          <button class="ghost-btn" id="installBtn">📲 Install LifeOS</button>
+        </div>
+        <div class="card">
+          <div class="setting-blurb" id="iosHint">On iPhone: open in Safari → Share → <b>Add to Home Screen</b> to install.</div>
+        </div>
+
+        <div class="footer-space"></div>
+      </main>
+    </section>
+
+    <!-- ============ BOTTOM NAV ============ -->
+    <nav class="tabbar">
+      <button class="tab active" data-tab="today"><span class="tab-ic">◎</span><span>Today</span></button>
+      <button class="tab" data-tab="trends"><span class="tab-ic">📈</span><span>Trends</span></button>
+      <button class="tab" data-tab="settings"><span class="tab-ic">⚙</span><span>Settings</span></button>
+    </nav>
+  </div>
+
+  <!-- ============ SEARCH OVERLAY ============ -->
+  <div class="modal search-modal" id="searchModal" hidden>
+    <div class="search-modal-card">
+      <div class="search-wrap big">
+        <span class="search-ic">⌕</span>
+        <input id="searchInput" class="search-input" placeholder="Search goals, pillars…" />
+        <button class="icon-btn close" id="closeSearch">✕</button>
+      </div>
+      <div class="search-results" id="searchResults"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="pillars.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
