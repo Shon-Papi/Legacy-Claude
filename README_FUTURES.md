@@ -107,6 +107,49 @@ random data the expected result is roughly breakeven minus fees, and that is
 exactly what it shows. Real-data backtests are the only performance evidence
 that counts.
 
+## TradingView version
+
+`tradingview/TrendBreakoutFutures.pine` is a Pine v6 port of the exact same
+strategy — same entries, stops, trailing, time stop, sizing and circuit
+breakers — so you can see it trade on a chart and fire alerts.
+
+**Setup**
+
+1. TradingView → Pine Editor → paste the file → *Add to chart*.
+2. Use a perpetual futures chart on the 15m timeframe, e.g.
+   `BINANCE:BTCUSDT.P`, `BINANCE:ETHUSDT.P`, `BINANCE:SOLUSDT.P`.
+3. Open the **Strategy Tester** tab — that is the bot "auto trading" in
+   simulation, with 0.05% commission and slippage already applied. In
+   *Properties*, enable **Use bar magnifier** for accurate intrabar stop
+   fills, and use *Deep Backtesting* for long histories.
+
+**Alerts (buy/sell notifications)**
+
+Create Alert → Condition: *Trend Breakout Futures* → choose
+**"Long setup" / "Short setup"** to be notified of every entry signal
+(app push, email, SMS).
+
+**Auto-trading (real orders)**
+
+TradingView itself cannot send orders to an exchange — a webhook bridge
+does. Create Alert → Condition: the strategy → **"Order fills and alert()
+function calls"**, set the message to exactly:
+
+```
+{{strategy.order.alert_message}}
+```
+
+and point the *Webhook URL* at your execution bridge (3Commas, Alertatron,
+PineConnector, or your own bot). Every order fill then sends JSON like:
+
+```json
+{"action":"buy","symbol":"BTCUSDT.P","exchange":"BINANCE","qty":0.012,"price":67431.5,"reason":"breakout_long"}
+```
+
+Run the webhook against a **testnet/paper account first**, and only fund it
+after the TradingView backtest and a few weeks of live alerts look good.
+One alert per chart symbol (one each for BTC, ETH, SOL).
+
 ## Configuration
 
 Everything is overridable via environment variables / `.env` — see the

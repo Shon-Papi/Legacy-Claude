@@ -1,0 +1,209 @@
+//@version=6
+// =====================================================================
+//  Trend Breakout Futures — Donchian + ATR  (port of futures/strategy.py)
+// =====================================================================
+//
+//  Same rules as the Python bot in this repo, so the TradingView
+//  Strategy Tester results are comparable with `run_futures.py backtest`:
+//
+//    ENTRY (long; short is the mirror)
+//      - EMA(50) > EMA(200) and close > EMA(200)      [trend filter]
+//      - close breaks the prior 20-bar Donchian high  [breakout]
+//      - RSI(14) < 75                                 [don't chase blow-offs]
+//    EXIT
+//      - initial stop: fill - 2.0 * ATR(14)
+//      - breakeven:    stop to entry after +1R
+//      - trailing:     chandelier, extreme - 2.5 * ATR
+//      - time stop:    close after 96 bars
+//      - flip:         opposite signal reverses the position
+//    RISK
+//      - sizes each trade so the initial stop loses Risk% of equity
+//      - per-position leverage cap
+//      - daily loss halt and drawdown kill switch (entries only)
+//
+//  HOW TO USE
+//    1. Add to a perpetual-futures chart (e.g. BINANCE:BTCUSDT.P) on 15m.
+//    2. Check the Strategy Tester. Enable "Use bar magnifier" in
+//       Properties for accurate intrabar stop fills.
+//    3. Alerts: Create Alert -> Condition: this strategy ->
+//       "Order fills and alert() function calls".
+//       Message box: {{strategy.order.alert_message}}
+//       For setup-only notifications instead, pick the
+//       "Long setup" / "Short setup" alertcondition events.
+//    4. Auto-trading: point the alert's Webhook URL at your execution
+//       bridge (3Commas / PineConnector / Alertatron / exchange bot).
+//       The alert_message is JSON with action, symbol, qty and reason.
+//
+//  TradingView cannot place exchange orders by itself — webhooks do
+//  the execution. Past results never guarantee future profits.
+// =====================================================================
+
+strategy("Trend Breakout Futures [Donchian+ATR]",
+     overlay = true,
+     initial_capital = 10000,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.05,
+     slippage = 2,
+     pyramiding = 0,
+     calc_on_every_tick = false,
+     process_orders_on_close = false)   // signals on close, fills next open — same as the Python backtester
+
+// ---------------------------------------------------------------------
+// Inputs
+// ---------------------------------------------------------------------
+emaFastLen  = input.int(50,    "Fast EMA",                  minval = 2,   group = "Trend filter")
+emaSlowLen  = input.int(200,   "Slow EMA",                  minval = 5,   group = "Trend filter")
+donLen      = input.int(20,    "Donchian breakout period",  minval = 5,   group = "Entry")
+rsiLen      = input.int(14,    "RSI period",                minval = 2,   group = "Entry")
+rsiLongMax  = input.float(75,  "Skip longs above RSI",      minval = 50,  maxval = 100, group = "Entry")
+rsiShortMin = input.float(25,  "Skip shorts below RSI",     minval = 0,   maxval = 50,  group = "Entry")
+allowLong   = input.bool(true,  "Allow longs",  group = "Entry")
+allowShort  = input.bool(true,  "Allow shorts", group = "Entry")
+
+atrLen      = input.int(14,    "ATR period",                    minval = 2,   group = "Exits")
+stopMult    = input.float(2.0, "Initial stop (ATR mult)",       step = 0.1,   group = "Exits")
+trailMult   = input.float(2.5, "Chandelier trail (ATR mult)",   step = 0.1,   group = "Exits")
+beR         = input.float(1.0, "Breakeven trigger (R)",         step = 0.25,  group = "Exits")
+maxHoldBars = input.int(96,    "Time stop (bars)",              minval = 1,   group = "Exits")
+
+riskPct     = input.float(0.75, "Risk per trade (% of equity)", step = 0.05, minval = 0.05, group = "Risk")
+maxLev      = input.float(2.0,  "Max position leverage",        step = 0.5,  minval = 0.1,  group = "Risk")
+dayLossPct  = input.float(3.0,  "Daily loss halt (%)",          step = 0.5,  group = "Risk")
+ddHaltPct   = input.float(15.0, "Drawdown kill switch (%)",     step = 1.0,  group = "Risk")
+
+// ---------------------------------------------------------------------
+// Indicators (identical definitions to futures/indicators.py)
+// ---------------------------------------------------------------------
+emaFast = ta.ema(close, emaFastLen)
+emaSlow = ta.ema(close, emaSlowLen)
+rsiV    = ta.rsi(close, rsiLen)        // Wilder's RSI
+atrV    = ta.atr(atrLen)               // Wilder's ATR
+donHigh = ta.highest(high, donLen)[1]  // prior N bars — excludes the current bar
+donLow  = ta.lowest(low,  donLen)[1]
+
+ready = not na(emaSlow) and not na(rsiV) and not na(atrV) and not na(donHigh) and atrV > 0
+
+uptrend   = ready and emaFast > emaSlow and close > emaSlow
+downtrend = ready and emaFast < emaSlow and close < emaSlow
+
+longSig  = uptrend   and close > donHigh and rsiV < rsiLongMax
+shortSig = downtrend and close < donLow  and rsiV > rsiShortMin
+
+// ---------------------------------------------------------------------
+// Circuit breakers (entries only — open positions are always managed)
+// ---------------------------------------------------------------------
+var float dayStartEquity = na
+if timeframe.change("1D") or na(dayStartEquity)
+    dayStartEquity := strategy.equity
+
+var float peakEquity = na
+peakEquity := na(peakEquity) ? strategy.equity : math.max(peakEquity, strategy.equity)
+
+dailyHalted = strategy.equity - dayStartEquity <= -dayLossPct / 100 * dayStartEquity
+
+var bool killSwitch = false
+if (peakEquity - strategy.equity) / peakEquity >= ddHaltPct / 100
+    killSwitch := true
+
+entriesOk = not dailyHalted and not killSwitch
+
+// ---------------------------------------------------------------------
+// Position sizing: initial ATR stop loses riskPct of equity, capped by leverage
+// ---------------------------------------------------------------------
+f_qty(price, atrVal) =>
+    stopDist = stopMult * atrVal
+    riskQty  = stopDist > 0 ? strategy.equity * riskPct / 100 / stopDist : 0.0
+    levQty   = price > 0 ? strategy.equity * maxLev / price : 0.0
+    math.max(math.min(riskQty, levQty), 0.0)
+
+// JSON payload for webhook execution bridges
+f_msg(action, qty, reason) =>
+    '{"action":"' + action + '","symbol":"' + syminfo.ticker + '","exchange":"' + syminfo.prefix +
+     '","qty":' + str.tostring(qty, "#.########") + ',"price":' + str.tostring(close, format.mintick) +
+     ',"reason":"' + reason + '"}'
+
+// ---------------------------------------------------------------------
+// Position state
+// ---------------------------------------------------------------------
+var float entryAtr  = na   // ATR captured at the signal bar
+var float initRisk  = na   // per-unit entry -> initial-stop distance
+var float stopPrice = na
+var float extreme   = na   // best price since entry
+var int   side      = 0
+
+posSign = strategy.position_size > 0 ? 1 : strategy.position_size < 0 ? -1 : 0
+justEntered = posSign != 0 and posSign != nz(posSign[1])
+
+if justEntered
+    side      := posSign
+    initRisk  := stopMult * entryAtr
+    stopPrice := strategy.position_avg_price - side * initRisk
+    extreme   := side == 1 ? math.max(strategy.position_avg_price, high) : math.min(strategy.position_avg_price, low)
+else if posSign != 0
+    extreme := side == 1 ? math.max(extreme, high) : math.min(extreme, low)
+
+// Ratchet the stop: chandelier trail + breakeven (stops only ever tighten)
+if posSign != 0 and not na(atrV)
+    trail = extreme - side * trailMult * atrV
+    stopPrice := side == 1 ? math.max(stopPrice, trail) : math.min(stopPrice, trail)
+    if initRisk > 0 and side * (close - strategy.position_avg_price) / initRisk >= beR
+        stopPrice := side == 1 ? math.max(stopPrice, strategy.position_avg_price) : math.min(stopPrice, strategy.position_avg_price)
+    strategy.exit(side == 1 ? "L stop" : "S stop",
+         from_entry    = side == 1 ? "L" : "S",
+         stop          = stopPrice,
+         alert_message = f_msg(side == 1 ? "sell" : "buy", math.abs(strategy.position_size), "stop"))
+
+// Time stop
+if posSign != 0 and bar_index - strategy.opentrades.entry_bar_index(strategy.opentrades - 1) >= maxHoldBars
+    strategy.close(side == 1 ? "L" : "S", comment = "time stop",
+         alert_message = f_msg(side == 1 ? "sell" : "buy", math.abs(strategy.position_size), "time_stop"))
+
+// ---------------------------------------------------------------------
+// Entries (an opposite signal reverses the position automatically)
+// ---------------------------------------------------------------------
+if longSig and allowLong and entriesOk and posSign <= 0
+    q = f_qty(close, atrV)
+    if q > 0
+        entryAtr := atrV
+        strategy.entry("L", strategy.long, qty = q,
+             alert_message = f_msg("buy", q, "breakout_long"))
+        // provisional stop so the very first bar in the trade is protected;
+        // re-anchored to the actual fill price on the entry bar above
+        strategy.exit("L stop", from_entry = "L", stop = close - stopMult * atrV,
+             alert_message = f_msg("sell", q, "stop"))
+
+if shortSig and allowShort and entriesOk and posSign >= 0
+    q = f_qty(close, atrV)
+    if q > 0
+        entryAtr := atrV
+        strategy.entry("S", strategy.short, qty = q,
+             alert_message = f_msg("sell", q, "breakout_short"))
+        strategy.exit("S stop", from_entry = "S", stop = close + stopMult * atrV,
+             alert_message = f_msg("buy", q, "stop"))
+
+// Position closed this bar — clear trade state
+if posSign == 0 and nz(posSign[1]) != 0
+    stopPrice := na
+    extreme   := na
+    initRisk  := na
+    side      := 0
+
+// ---------------------------------------------------------------------
+// Setup-only alerts (use these if you just want notifications)
+// ---------------------------------------------------------------------
+alertcondition(longSig,  "Long setup",  "LONG breakout setup: price broke the prior 20-bar high in an uptrend")
+alertcondition(shortSig, "Short setup", "SHORT breakdown setup: price broke the prior 20-bar low in a downtrend")
+
+// ---------------------------------------------------------------------
+// Visuals
+// ---------------------------------------------------------------------
+plot(emaFast, "EMA fast", color = color.new(color.orange, 0))
+plot(emaSlow, "EMA slow", color = color.new(color.blue, 0))
+plot(donHigh, "Donchian high", color = color.new(color.teal, 60))
+plot(donLow,  "Donchian low",  color = color.new(color.teal, 60))
+plot(posSign != 0 ? stopPrice : na, "Stop", color = color.new(color.red, 0), style = plot.style_linebr, linewidth = 2)
+
+plotshape(longSig,  "Long signal",  shape.triangleup,   location.belowbar, color.new(color.green, 0), size = size.tiny)
+plotshape(shortSig, "Short signal", shape.triangledown, location.abovebar, color.new(color.red, 0),   size = size.tiny)
+
+bgcolor(killSwitch ? color.new(color.red, 85) : dailyHalted ? color.new(color.orange, 88) : na, title = "Risk halt")
