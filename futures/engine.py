@@ -284,11 +284,19 @@ class TradingEngine:
         self.risk.update_equity(equity, self.cfg)
 
         for sym, df in frames.items():
-            newest = df.index[-1].isoformat()
-            if self.last_bar.get(sym) == newest:
-                continue  # no new closed bar yet
-            self.last_bar[sym] = newest
-            self._process_bar(sym, df, prices)
+            last = self.last_bar.get(sym)
+            if last is None:
+                # First run: start from the newest bar — never replay history
+                new_rows = [len(df) - 1]
+            else:
+                last_ts = pd.Timestamp(last)
+                new_rows = [i for i in range(len(df)) if df.index[i] > last_ts]
+            # Catch up on every bar closed since the last processed one, in
+            # order, so stops/trailing are checked against missed bars too
+            for i in new_rows:
+                prices[sym] = float(df["close"].iloc[i])
+                self.last_bar[sym] = df.index[i].isoformat()
+                self._process_bar(sym, df.iloc[: i + 1], prices)
 
         self._save_state()
         logger.info(

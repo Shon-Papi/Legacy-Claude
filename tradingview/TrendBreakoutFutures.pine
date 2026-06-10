@@ -159,6 +159,18 @@ if posSign != 0 and bar_index - strategy.opentrades.entry_bar_index(strategy.ope
          alert_message = f_msg(side == 1 ? "sell" : "buy", math.abs(strategy.position_size), "time_stop"))
 
 // ---------------------------------------------------------------------
+// Flip: an opposite signal always closes the position — exits are never
+// halted. When entries are allowed, the reversal entry below does the
+// closing instead.
+// ---------------------------------------------------------------------
+if posSign == 1 and shortSig and not (allowShort and entriesOk)
+    strategy.close("L", comment = "signal flip",
+         alert_message = f_msg("sell", math.abs(strategy.position_size), "signal_flip"))
+if posSign == -1 and longSig and not (allowLong and entriesOk)
+    strategy.close("S", comment = "signal flip",
+         alert_message = f_msg("buy", math.abs(strategy.position_size), "signal_flip"))
+
+// ---------------------------------------------------------------------
 // Entries (an opposite signal reverses the position automatically)
 // ---------------------------------------------------------------------
 if longSig and allowLong and entriesOk and posSign <= 0

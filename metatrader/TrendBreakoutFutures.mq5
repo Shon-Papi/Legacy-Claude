@@ -150,6 +150,23 @@ double UpdatePeakEquity()
   }
 
 //+------------------------------------------------------------------+
+//| Roll the daily-loss reference at the start of each server day.   |
+//| Must run every bar so the day-start equity is stamped BEFORE any |
+//| of the day's losses, not lazily at the first entry attempt.      |
+//+------------------------------------------------------------------+
+void UpdateDayStart()
+  {
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   double stamp = dt.year * 10000 + dt.mon * 100 + dt.day;
+   if(!GlobalVariableCheck(GV_DAY) || GlobalVariableGet(GV_DAY) != stamp)
+     {
+      GlobalVariableSet(GV_DAY, stamp);
+      GlobalVariableSet(GV_DAYEQ, AccountInfoDouble(ACCOUNT_EQUITY));
+     }
+  }
+
+//+------------------------------------------------------------------+
 //| Account-level circuit breakers. Entries only — exits always run. |
 //+------------------------------------------------------------------+
 bool EntriesAllowed()
@@ -169,16 +186,8 @@ bool EntriesAllowed()
       return(false);
      }
 
-   // Daily loss halt, keyed to the server-time day (persisted)
-   MqlDateTime dt;
-   TimeToStruct(TimeCurrent(), dt);
-   double stamp = dt.year * 10000 + dt.mon * 100 + dt.day;
-   if(!GlobalVariableCheck(GV_DAY) || GlobalVariableGet(GV_DAY) != stamp)
-     {
-      GlobalVariableSet(GV_DAY, stamp);
-      GlobalVariableSet(GV_DAYEQ, equity);
-     }
-   double dayStart = GlobalVariableGet(GV_DAYEQ);
+   // Daily loss halt against the equity stamped at the start of the day
+   double dayStart = GlobalVariableCheck(GV_DAYEQ) ? GlobalVariableGet(GV_DAYEQ) : equity;
    if(dayStart > 0 && equity - dayStart <= -InpDailyLossPct / 100.0 * dayStart)
      {
       Print("RISK: daily loss halt — equity ", equity, " vs day start ", dayStart);
@@ -258,8 +267,9 @@ void ManagePosition(const ulong ticket, const double atrNow, const double closeP
       return;
      }
 
-   // Initial risk: ATR at the entry bar * stop multiple (deterministic)
-   double atrEntry = BufAt(hAtr, MathMin(barsHeld, iBars(_Symbol, _Period) - 1));
+   // Initial risk: ATR at the signal bar (one before the entry bar) *
+   // stop multiple — same reference the entry stop was sized from
+   double atrEntry = BufAt(hAtr, MathMin(barsHeld + 1, iBars(_Symbol, _Period) - 1));
    if(atrEntry == EMPTY_VALUE || atrEntry <= 0) atrEntry = atrNow;
    double initRisk = InpStopAtrMult * atrEntry;
    if(initRisk <= 0) return;
@@ -309,6 +319,7 @@ void OnTick()
    if(iBars(_Symbol, _Period) < InpEmaSlow + InpDonchian + 10) return;
 
    UpdatePeakEquity();   // keep the kill-switch reference honest every bar
+   UpdateDayStart();     // stamp day-start equity before any of the day's losses
 
    // --- indicator values at the last CLOSED bar (shift 1)
    double emaFast = BufAt(hEmaFast, 1);
@@ -345,7 +356,12 @@ void OnTick()
       bool isLong = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY;
       if((isLong && shortSig) || (!isLong && longSig))
         {
-         trade.PositionClose(ticket);
+         if(!trade.PositionClose(ticket))
+           {
+            // never open the reverse while the old position may still exist
+            Print("Flip close failed: ", trade.ResultRetcodeDescription());
+            return;
+           }
          Print("EXIT signal flip");
          ticket = 0;
         }

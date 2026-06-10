@@ -80,7 +80,8 @@ def get_data(
         age_min = (pd.Timestamp.now(tz="UTC") - df.index[-1]).total_seconds() / 60
         if span_days >= days * 0.95 and age_min < 24 * 60:
             logger.info("Using cached data for %s (%d rows)", symbol, len(df))
-            return df
+            # Trim to the requested window (the cache may hold a longer span)
+            return df[df.index >= df.index[-1] - pd.Timedelta(days=days)]
 
     df = fetch_ohlcv(symbol, timeframe, days, cfg)
     os.makedirs(cfg.DATA_CACHE_DIR, exist_ok=True)

@@ -206,6 +206,15 @@ def main() -> int:
         )
         with open(fconfig.PAPER_STATE_FILE) as f:
             check("state file is valid JSON with risk block", "risk" in json.load(f))
+
+        # Downtime: 5 bars close while the engine is offline — one cycle
+        # must process all of them in order, not just the newest
+        sym0 = fconfig.SYMBOLS[0]
+        engine2.exchange.cursor = engine.exchange.cursor + 5
+        engine2._cycle(610)
+        expected = engine2.exchange.data[sym0].index[engine2.exchange.cursor - 1].isoformat()
+        check("engine catches up on bars missed during downtime",
+              engine2.last_bar[sym0] == expected)
     finally:
         eng.FuturesExchange = real_exchange
         fconfig.PAPER_STATE_FILE, fconfig.JOURNAL_FILE = state_file, journal_file

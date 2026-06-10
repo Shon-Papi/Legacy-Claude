@@ -190,6 +190,18 @@ Everything is overridable via environment variables / `.env` — see the
 `FUTURES BOT` section of `.env.example`. If you change strategy parameters,
 re-run the backtest *and* the paper period before trading them.
 
+## Verifying correctness
+
+```bash
+python verify_futures.py
+```
+
+runs 26 offline checks: indicator math, no-lookahead, sizing and leverage
+caps, PnL/fee accounting to the cent, every circuit breaker, downtime
+catch-up, engine state persistence, and the mainnet safety latch. Run it
+after any code change. It proves correctness — real-data backtests and
+paper trading prove (or disprove) profitability.
+
 ## Layout
 
 ```
@@ -203,4 +215,7 @@ futures/
   exchange.py    ccxt order/data wrapper (testnet-aware)
   engine.py      paper/live trading loop with persistent state
 run_futures.py   CLI entrypoint
+verify_futures.py                     offline verification suite (26 checks)
+tradingview/TrendBreakoutFutures.pine Pine v6 strategy (alerts + webhooks)
+metatrader/TrendBreakoutFutures.mq5   MT5 Expert Advisor (native auto-trading)
 ```
