@@ -16,6 +16,12 @@ env/
 # Trade journal (runtime output)
 trades_journal.jsonl
 
+# Futures bot runtime output
+futures_paper_state.json
+futures_trades.csv
+backtest_trades.csv
+data_cache/
+
 # IDE
 .vscode/
 .idea/
