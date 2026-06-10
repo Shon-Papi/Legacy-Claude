@@ -150,6 +150,40 @@ Run the webhook against a **testnet/paper account first**, and only fund it
 after the TradingView backtest and a few weeks of live alerts look good.
 One alert per chart symbol (one each for BTC, ETH, SOL).
 
+## MetaTrader 5 version (fully self-executing)
+
+`metatrader/TrendBreakoutFutures.mq5` is an Expert Advisor port of the same
+strategy. **This is the easiest path to true auto-trading**: unlike
+TradingView, an MT5 EA places and manages orders natively — no webhooks, no
+bridges. The protective stop is a real server-side stop order held by the
+broker, so it works even if your terminal goes offline.
+
+**Setup**
+
+1. Open the file in MetaEditor (F4 from MT5) and compile (F7).
+2. In MT5, drag the EA onto a **15-minute chart** of each futures/CFD
+   symbol you want traded (one chart per symbol), and enable
+   **Algo Trading**. Sizing adapts automatically to any contract spec
+   (tick value / tick size / contract size), so it works on exchange
+   futures and crypto/index CFDs alike.
+3. The risk state (peak equity, daily start, kill switch) is persisted in
+   terminal global variables and shared account-wide across charts. After
+   a kill-switch halt, review what happened, then delete the
+   `TBF_kill_switch` global variable (Tools → Global Variables) to re-arm.
+
+**Required before real money — same gates as everything else here**
+
+1. Strategy Tester (Ctrl+R), model "Every tick based on real ticks", on
+   each symbol you intend to trade. Gate: profit factor > 1.2 and a
+   tolerable max drawdown.
+2. A **demo account** for several weeks with Algo Trading on.
+3. Only then a small live account. The daily loss halt (−3%) and kill
+   switch (−15% from peak) stay active throughout.
+
+Note: whether you get *actual* futures (CME, etc.) or futures-style CFDs
+depends entirely on your broker's MT5 offering. The EA is agnostic — it
+reads the contract specification from the symbol.
+
 ## Configuration
 
 Everything is overridable via environment variables / `.env` — see the
